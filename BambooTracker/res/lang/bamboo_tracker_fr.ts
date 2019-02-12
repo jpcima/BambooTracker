@@ -441,7 +441,7 @@
         <location filename="../../gui/instrument_editor/instrument_editor_ssg_form.ui" line="85"/>
         <source>Square mask:</source>
         <translatorcomment>À vérifier</translatorcomment>
-        <translation type="unfinished">Signal carré masquant :</translation>
+        <translation type="unfinished">Masque de signal carré :</translation>
     </message>
     <message>
         <location filename="../../gui/instrument_editor/instrument_editor_ssg_form.ui" line="99"/>
@@ -515,7 +515,7 @@
         <location filename="../../gui/mainwindow.ui" line="53"/>
         <source>Order List</source>
         <translatorcomment>Incertitude à propos de la traduction adéquate pour &quot;order&quot;</translatorcomment>
-        <translation type="unfinished">Liste d&apos;ordres</translation>
+        <translation type="unfinished">Liste d&apos;ordre</translation>
     </message>
     <message>
         <location filename="../../gui/mainwindow.ui" line="82"/>
@@ -748,7 +748,7 @@
     <message>
         <location filename="../../gui/mainwindow.ui" line="695"/>
         <source>&amp;Redo</source>
-        <translation>&amp;Rétablir</translation>
+        <translation>&amp;Refaire</translation>
     </message>
     <message>
         <location filename="../../gui/mainwindow.ui" line="698"/>
@@ -1534,7 +1534,7 @@
     <message>
         <location filename="../../gui/pattern_editor/pattern_editor_panel.cpp" line="1245"/>
         <source>&amp;Redo</source>
-        <translation>&amp;Rétablir</translation>
+        <translation>&amp;Refaire</translation>
     </message>
     <message>
         <location filename="../../gui/pattern_editor/pattern_editor_panel.cpp" line="1251"/>
