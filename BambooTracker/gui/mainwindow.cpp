@@ -38,6 +38,7 @@
 #include "chips/scci/SCCIDefines.h"
 #include "gui/file_history_handler.hpp"
 #include "midi/midi.hpp"
+#include "audio/audio_client_rtaudio.hpp"
 
 MainWindow::MainWindow(std::weak_ptr<Configuration> config, QString filePath, QWidget *parent) :
 	QMainWindow(parent),
@@ -176,18 +177,20 @@ MainWindow::MainWindow(std::weak_ptr<Configuration> config, QString filePath, QW
 		QString sndDev = QAudioDeviceInfo::defaultOutputDevice().deviceName();
 		config.lock()->setSoundDevice(sndDev.toUtf8().toStdString());
 	}
-	stream_ = std::make_shared<AudioStream>(
-				  bt_->getStreamRate(), bt_->getStreamDuration(), bt_->getModuleTickFrequency(),
-				  QString::fromUtf8(config.lock()->getSoundDevice().c_str(),
-									static_cast<int>(config.lock()->getSoundDevice().length())));
-	QObject::connect(stream_.get(), &AudioStream::streamInterrupted,
-					 this, &MainWindow::onNewTickSignaled, Qt::DirectConnection);
-	QObject::connect(stream_.get(), &AudioStream::bufferPrepared,
-					 this, [&](int16_t *container, size_t nSamples) {
-		bt_->getStreamSamples(container, nSamples);
-	}, Qt::DirectConnection);
+	client_ = std::make_shared<AudioClient_RtAudio>();
+	client_->initialize(
+		bt_->getStreamRate(), bt_->getStreamDuration(), bt_->getModuleTickFrequency(),
+		QString::fromUtf8(config.lock()->getSoundDevice().c_str(),
+						  static_cast<int>(config.lock()->getSoundDevice().length())));
+	client_->setCallback(+[](int16_t *container, size_t nSamples, void *cbPtr) {
+							  auto bt = reinterpret_cast<BambooTracker *>(cbPtr);
+							  bt->getStreamSamples(container, nSamples);
+						  }, bt_.get());
+	QObject::connect(client_.get(), &AudioClient::streamInterrupted,
+					 this, &MainWindow::onNewTickSignaled, Qt::QueuedConnection);
+
 	if (config.lock()->getUseSCCI()) {
-		stream_->stop();
+		client_->stop();
 		timer_ = std::make_unique<Timer>();
 		timer_->setInterval(1000000 / bt_->getModuleTickFrequency());
 		tickEventMethod_ = metaObject()->indexOfSlot("onNewTickSignaled()");
@@ -211,7 +214,7 @@ MainWindow::MainWindow(std::weak_ptr<Configuration> config, QString filePath, QW
 	}
 	else {
 		bt_->useSCCI(nullptr);
-		stream_->start();
+		client_->start();
 	}
 
 	/* Module settings */
@@ -448,6 +451,7 @@ MainWindow::MainWindow(std::weak_ptr<Configuration> config, QString filePath, QW
 MainWindow::~MainWindow()
 {
 	MidiInterface::instance().uninstallInputHandler(&midiThreadReceivedEvent, this);
+	client_->shutdown();
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -1085,7 +1089,7 @@ void MainWindow::changeConfiguration()
 {
 	// SCCI settings
 	if (config_.lock()->getUseSCCI()) {
-		stream_->stop();
+		client_->stop();
 		if (!timer_) {
 			timer_ = std::make_unique<Timer>();
 			timer_->setInterval(1000000 / bt_->getModuleTickFrequency());
@@ -1112,12 +1116,11 @@ void MainWindow::changeConfiguration()
 	else {
 		timer_.reset();
 		bt_->useSCCI(nullptr);
-		stream_->setRate(config_.lock()->getSampleRate());
-		stream_->setDuration(config_.lock()->getBufferLength());
-		stream_->setDevice(
-					QString::fromUtf8(config_.lock()->getSoundDevice().c_str(),
-									  static_cast<int>(config_.lock()->getSoundDevice().length())));
-		stream_->start();
+		client_->initialize(
+			config_.lock()->getSampleRate(), config_.lock()->getBufferLength(), bt_->getModuleTickFrequency(),
+			QString::fromUtf8(config_.lock()->getSoundDevice().c_str(),
+							  static_cast<int>(config_.lock()->getSoundDevice().length())));
+		client_->start();
 	}
 
 	setMidiConfiguration();
@@ -1703,7 +1706,7 @@ void MainWindow::on_actionModule_Properties_triggered()
 		ui->instrumentListWidget->setCurrentRow(instRow);
 
 		// Set tick frequency
-		stream_->setInturuption(bt_->getModuleTickFrequency());
+		client_->setInterruption(bt_->getModuleTickFrequency());
 		if (timer_) timer_->setInterval(1000000 / bt_->getModuleTickFrequency());
 		statusIntr_->setText(QString::number(bt_->getModuleTickFrequency()) + QString("Hz"));
 	}
@@ -2152,7 +2155,7 @@ void MainWindow::on_actionWAV_triggered()
 
 	bt_->stopPlaySong();
 	lockControls(false);
-	stream_->stop();
+	client_->stop();
 
 	try {
 		bool res = bt_->exportToWav(file.toStdString(), diag.getLoopCount(),
@@ -2167,7 +2170,7 @@ void MainWindow::on_actionWAV_triggered()
 		QMessageBox::critical(this, tr("Error"), tr("Failed to export to wav file."));
 	}
 
-	stream_->start();
+	client_->start();
 }
 
 void MainWindow::on_actionVGM_triggered()
@@ -2198,7 +2201,7 @@ void MainWindow::on_actionVGM_triggered()
 
 	bt_->stopPlaySong();
 	lockControls(false);
-	stream_->stop();
+	client_->stop();
 
 	try {
 		bool res = bt_->exportToVgm(file.toStdString(),
@@ -2216,7 +2219,7 @@ void MainWindow::on_actionVGM_triggered()
 		QMessageBox::critical(this, tr("Error"), tr("Failed to export to vgm file."));
 	}
 
-	stream_->start();
+	client_->start();
 }
 
 void MainWindow::on_actionS98_triggered()
@@ -2247,7 +2250,7 @@ void MainWindow::on_actionS98_triggered()
 
 	bt_->stopPlaySong();
 	lockControls(false);
-	stream_->stop();
+	client_->stop();
 
 	try {
 		bool res = bt_->exportToS98(file.toStdString(),
@@ -2266,7 +2269,7 @@ void MainWindow::on_actionS98_triggered()
 		QMessageBox::critical(this, tr("Error"), tr("Failed to export to s98 file."));
 	}
 
-	stream_->start();
+	client_->start();
 }
 
 void MainWindow::on_actionMix_triggered()

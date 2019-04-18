@@ -20,7 +20,7 @@
 #include <QLibrary>
 #include "configuration.hpp"
 #include "bamboo_tracker.hpp"
-#include "audio_stream.hpp"
+#include "audio/audio_client.hpp"
 #include "gui/instrument_editor/instrument_form_manager.hpp"
 #include "gui/color_palette.hpp"
 #include "timer.hpp"
@@ -64,7 +64,7 @@ private:
 	std::weak_ptr<Configuration> config_;
 	std::shared_ptr<ColorPalette> palette_;
 	std::shared_ptr<BambooTracker> bt_;
-	std::shared_ptr<AudioStream> stream_;
+	std::shared_ptr<AudioClient> client_;
 	std::unique_ptr<Timer> timer_;
 	std::unique_ptr<QTimer> visualTimer_;
 	std::shared_ptr<QUndoStack> comStack_;

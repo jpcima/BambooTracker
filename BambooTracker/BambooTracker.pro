@@ -195,7 +195,9 @@ SOURCES += \
     gui/file_history.cpp \
     midi/midi.cpp \
     gui/q_application_wrapper.cpp \
-    gui/wave_visual.cpp
+    gui/wave_visual.cpp \
+    audio/audio_client.cpp \
+    audio/audio_client_rtaudio.cpp
 
 HEADERS += \
     gui/effect_list_dialog.hpp \
@@ -371,7 +373,9 @@ HEADERS += \
     midi/midi.hpp \
     midi/midi_def.h \
     gui/q_application_wrapper.hpp \
-    gui/wave_visual.hpp
+    gui/wave_visual.hpp \
+    audio/audio_client.hpp \
+    audio/audio_client_rtaudio.hpp
 
 FORMS += \
     gui/effect_list_dialog.ui \
@@ -411,6 +415,7 @@ TRANSLATIONS += \
     res/lang/bamboo_tracker_ja.ts
 
 include("midi/RtMidi/RtMidi.pri")
+include("audio/RtAudio/RtAudio.pri")
 
 equals(QT_MAJOR_VERSION, 5) {
     lessThan(QT_MINOR_VERSION, 12) {
