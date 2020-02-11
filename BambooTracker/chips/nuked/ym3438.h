@@ -83,6 +83,9 @@ typedef struct
     /*OPN-MOD: Rhythm channel outputs*/
     Bit16s rhythml[6];
     Bit16s rhythmr[6];
+    /*OPN-MOD: DeltaT channel outputs*/
+    Bit16s deltaTl[6];
+    Bit16s deltaTr[6];
     /* IO */
     Bit16u write_data;
     Bit8u write_a;
@@ -250,6 +253,7 @@ typedef struct
 
     /*OPN-MOD*/
     YM_DELTAT deltaT;
+    Bit32s out_deltaT[4];
 } ym3438_t;
 
 void OPN2_Reset(ym3438_t *chip, Bit32u clock, const struct OPN2mod_psg_callbacks *psg, void *psgdata, Bit32u dramsize);
