@@ -34,6 +34,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 #include "ym3438.h"
 
 /*OPN-MOD: define the quantization in bits at which channels clip*/
@@ -290,7 +291,7 @@ static const int adpcm_step_inc[8] = { -1*16, -1*16, -1*16, -1*16, 2*16, 5*16, 7
 
 static Bit32u chip_type = ym3438_mode_readmode;
 
-/*OPNMOD: update ADPCM volume*/
+/*OPN-MOD: update ADPCM volume*/
 void OPNmod_RhythmUpdateVolume(ym3438_t *chip, Bit32u channel)
 {
     Bit8u volume = chip->rhythm_tl + chip->rhythm_level[channel];
@@ -1217,7 +1218,7 @@ void OPN2_FMGenerate(ym3438_t *chip)
     chip->fm_out[slot] = output;
 }
 
-/*OPNMOD: generate ADPCM rhythm*/
+/*OPN-MOD: generate ADPCM rhythm*/
 void OPNmod_RhythmGenerate(ym3438_t *chip)
 {
     Bit32u channel = chip->channel;
@@ -1417,9 +1418,22 @@ void OPN2_KeyOn(ym3438_t*chip)
     }
 }
 
-void OPN2_Reset(ym3438_t *chip, Bit32u clock, const struct OPN2mod_psg_callbacks *psg, void *psgdata)
+static void OPNmod_deltat_status_set(void *userdata, Bit8u changebits)
+{
+    ym3438_t *chip = (ym3438_t *)userdata;
+    chip->status |= ~changebits;
+}
+
+static void OPNmod_deltat_status_reset(void *userdata, Bit8u changebits)
+{
+    ym3438_t *chip = (ym3438_t *)userdata;
+    chip->status &= ~changebits;
+}
+
+void OPN2_Reset(ym3438_t *chip, Bit32u clock, const struct OPN2mod_psg_callbacks *psg, void *psgdata, Bit32u dramsize)
 {
     Bit32u i;
+    free(chip->deltaT.memory);
     memset(chip, 0, sizeof(ym3438_t));
     for (i = 0; i < 24; i++)
     {
@@ -1445,6 +1459,33 @@ void OPN2_Reset(ym3438_t *chip, Bit32u clock, const struct OPN2mod_psg_callbacks
         chip->rhythm_step[i] = (Bit32u)((1 << adpcm_shift) / ((i < 4) ? 3.0 : 6.0));
         OPNmod_RhythmUpdateVolume(chip, i);
     }
+
+    /*OPN-MOD: initialize ADPCM*/
+    //chip->deltaT.memory = (UINT8 *)pcmrom;
+    //chip->deltaT.memory_size = pcmsize;
+    //chip->deltaT.memory = NULL;
+    //chip->deltaT.memory_size = 0x00;
+    //chip->deltaT.memory_mask = 0x00;
+    chip->deltaT.memory = (Bit8u *)realloc(chip->deltaT.memory, dramsize);
+    chip->deltaT.memory_size = dramsize;
+    YM_DELTAT_calc_mem_mask(&chip->deltaT);
+    /*chip->deltaT.write_time = 20.0 / clock;*/    /* a single byte write takes 20 cycles of main clock */
+    /*chip->deltaT.read_time  = 18.0 / clock;*/    /* a single byte read takes 18 cycles of main clock */
+    chip->deltaT.status_set_handler = &OPNmod_deltat_status_set;
+    chip->deltaT.status_reset_handler = &OPNmod_deltat_status_reset;
+    chip->deltaT.status_change_which_chip = chip;
+    chip->deltaT.status_change_EOS_bit = 0x04;    /* status flag: set bit2 on End Of Sample */
+    chip->deltaT.status_change_BRDY_bit = 0x08;    /* status flag: set bit3 on BRDY */
+    chip->deltaT.status_change_ZERO_bit = 0x10;    /* status flag: set bit4 if silence continues for more than 290 miliseconds while recording the ADPCM */
+}
+
+void OPN2_Destroy(ym3438_t *chip)
+{
+    if (!chip)
+        return;
+
+    free(chip->deltaT.memory);
+    chip->deltaT.memory = NULL;
 }
 
 void OPN2_SetChipType(Bit32u type)
